@@ -1,0 +1,14 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/src/session-hygiene-hook/hygiene_hook.py"
+          }
+        ]
+      }
+    ]
+  }
+}
