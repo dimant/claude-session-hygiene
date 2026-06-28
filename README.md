@@ -128,11 +128,31 @@ always-visible counterpart: it renders current context usage in the status bar e
 you can watch it climb.
 
 ```
-myproject · opus-4-8 · ctx 530K (53%) · $52
+myproject · opus-4-8 · ctx 530K (53%) · 62% left (2h41m) · $52
 ```
 
 It turns **yellow past 50%** of the model's context window and **red past 75%**, giving you a
-heads-up well before the nudge fires. Wire it up alongside (or instead of) the hook:
+heads-up well before the nudge fires.
+
+### Session-quota remaining (`% left (reset countdown)`)
+
+On **Pro/Max** accounts the status line also shows how much of your subscription rate limit is
+left — the same numbers `/usage` reports. Claude Code passes a `rate_limits` object on stdin
+(present only for Claude.ai subscribers, and only after the first response of a session), and
+`statusline.py` renders the **remaining** headroom plus the **time until that window resets**:
+
+- `62% left (2h41m)` — the 5-hour rolling session block (the usual binding constraint, always
+  shown); the parenthetical is how long until it refills.
+- A second token (e.g. `15% left (3d4h)`) is the weekly window, shown **only when it has less
+  headroom than the 5-hour block**, so the line stays compact until the weekly limit is the
+  thing to watch. Its longer countdown (days) tells the two windows apart.
+
+Each token colors by how little is left — **yellow ≤50%, red ≤25%, bold red ≤10%** — so a
+nearly-exhausted quota is hard to miss. If the `rate_limits` data isn't present (free tier, or
+before the first response), the segment is simply omitted; if a window has no reset timestamp,
+the countdown is dropped and just the `% left` shows.
+
+Wire it up alongside (or instead of) the hook:
 
 ```json
 {

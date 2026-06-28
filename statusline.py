@@ -16,7 +16,7 @@ Claude Code passes a JSON object on stdin (includes `transcript_path`, `cwd`,
 No dependencies. Python 3.8+.
 """
 from __future__ import annotations
-import json, os, sys
+import json, os, sys, time
 
 INPUT_RATE = {"opus": 5e-6, "sonnet": 3e-6, "haiku": 1e-6}     # per input token
 WINDOW = {"opus": 1_000_000, "sonnet": 1_000_000, "haiku": 200_000}
@@ -82,6 +82,7 @@ def human(n: int) -> str:
 
 
 def color_for(pct: float) -> str:
+    """Color by fraction *used* — more used is worse (context window)."""
     if os.environ.get("NO_COLOR"):
         return ""
     if pct >= 90:
@@ -91,6 +92,80 @@ def color_for(pct: float) -> str:
     if pct >= 50:
         return "\x1b[33m"     # yellow
     return "\x1b[32m"         # green
+
+
+def color_for_left(left: float) -> str:
+    """Color by fraction *remaining* — less left is worse (session quota)."""
+    if os.environ.get("NO_COLOR"):
+        return ""
+    if left <= 10:
+        return "\x1b[1;31m"   # bold red
+    if left <= 25:
+        return "\x1b[31m"     # red
+    if left <= 50:
+        return "\x1b[33m"     # yellow
+    return "\x1b[32m"         # green
+
+
+def until(epoch) -> str:
+    """Compact countdown from now to a unix-epoch-seconds reset time.
+
+    Returns '' when the timestamp is missing or already past, else e.g.
+    '2h41m', '3d4h', or '12m'.
+    """
+    try:
+        secs = int(float(epoch)) - int(time.time())
+    except (TypeError, ValueError):
+        return ""
+    if secs <= 0:
+        return ""
+    d, rem = divmod(secs, 86400)
+    h, rem = divmod(rem, 3600)
+    m, _ = divmod(rem, 60)
+    if d:
+        return f"{d}d{h}h"
+    if h:
+        return f"{h}h{m}m"
+    return f"{m}m"
+
+
+def session_segments(data: dict):
+    """Render the subscription rate-limit ('session usage') windows.
+
+    Claude Code passes `rate_limits` on stdin for Pro/Max accounts after the
+    first response of a session: each window has `used_percentage` (0-100) and
+    `resets_at` (unix epoch seconds). We show how much is *left* and how long
+    until the window resets. The 5-hour block is the usual binding constraint,
+    so it's shown first; the weekly window is added only when it has less
+    headroom than the 5-hour one.
+    """
+    rl = data.get("rate_limits")
+    if not isinstance(rl, dict):
+        return []
+    reset = "" if os.environ.get("NO_COLOR") else "\x1b[0m"
+
+    def read(window: str):
+        w = rl.get(window)
+        if not isinstance(w, dict):
+            return None, ""
+        used = w.get("used_percentage")
+        if used is None:
+            return None, ""
+        return max(0.0, 100.0 - float(used)), until(w.get("resets_at"))
+
+    def token(left: float, countdown: str) -> str:
+        tail = f" ({countdown})" if countdown else ""
+        return f"{color_for_left(left)}{left:.0f}% left{tail}{reset}"
+
+    out = []
+    h5, h5_reset = read("five_hour")
+    wk, wk_reset = read("seven_day")
+    if h5 is not None:
+        out.append(token(h5, h5_reset))
+    # surface weekly only when it's the tighter constraint (or 5h is absent)
+    if wk is not None and (h5 is None or wk < h5):
+        out.append(token(wk, wk_reset))
+    return out
 
 
 def main():
@@ -128,6 +203,7 @@ def main():
     c, reset = color_for(pct), ("" if os.environ.get("NO_COLOR") else "\x1b[0m")
 
     parts = [project, model_short, f"{c}ctx {human(ctx)} ({pct:.0f}%){reset}"]
+    parts.extend(session_segments(data))
     if cost:
         parts.append(f"${cost:.0f}")
     print(" · ".join(parts))
