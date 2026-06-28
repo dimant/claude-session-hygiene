@@ -1,0 +1,6 @@
+{
+  "statusLine": {
+    "type": "command",
+    "command": "python3 ~/src/session-hygiene-hook/statusline.py"
+  }
+}

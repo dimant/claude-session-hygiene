@@ -121,6 +121,35 @@ echo '{"transcript_path":"/path/to/session.jsonl"}' | python3 hygiene_hook.py
 
 ---
 
+## Live status line (optional companion)
+
+The Stop hook nudges you *after* a turn once you cross a threshold. `statusline.py` is the
+always-visible counterpart: it renders current context usage in the status bar every turn, so
+you can watch it climb.
+
+```
+vibeos · opus-4-8 · ctx 530K (53%) · $52
+```
+
+It turns **yellow past 50%** of the model's context window and **red past 75%**, giving you a
+heads-up well before the nudge fires. Wire it up alongside (or instead of) the hook:
+
+```json
+{
+  "statusLine": {
+    "type": "command",
+    "command": "python3 ~/src/session-hygiene-hook/statusline.py"
+  }
+}
+```
+
+Like the hook, it reads the session JSON Claude Code sends on stdin (using `transcript_path`)
+and measures context from the most recent turn — no extra state, no dependencies. It uses the
+host-provided cost when available and otherwise estimates from the transcript. Set `NO_COLOR=1`
+to disable the ANSI coloring.
+
+---
+
 ## How it works (internals)
 
 - **Stop hook** fires after each assistant response, so it tracks context in real time.
