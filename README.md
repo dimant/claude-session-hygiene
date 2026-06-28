@@ -41,10 +41,10 @@ On every `Stop` event (i.e. after each Claude response), the hook:
 1. reads the current session transcript (Claude Code passes its path on stdin),
 2. measures the **current context size** from the most recent turn,
 3. if context ≥ a threshold (default **300K tokens**), prints a one-line nudge to you:
-
+```
    > ⚠ session hygiene: context ~530K tokens — each further turn re-reads this context
    > (~$0.27/turn). Consider /clear or /compact to reset the context tax. (session ~$52 so far)
-
+```
 Below the threshold it prints nothing. After you `/compact` (or `/clear`), context drops and
 **the nudge goes quiet on its own** — no snooze logic, no state to manage.
 
@@ -128,7 +128,7 @@ always-visible counterpart: it renders current context usage in the status bar e
 you can watch it climb.
 
 ```
-vibeos · opus-4-8 · ctx 530K (53%) · $52
+myproject · opus-4-8 · ctx 530K (53%) · $52
 ```
 
 It turns **yellow past 50%** of the model's context window and **red past 75%**, giving you a
